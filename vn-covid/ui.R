@@ -9,19 +9,21 @@
 
 library(shiny)
 library(echarts4r)
+library(plotly)
+
 
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
-
     # Application title
     titlePanel("Old Faithful Geyser Data"),
-# 
-#     # Sidebar with a slider input for number of bins
-#     sidebarLayout(position = 'left',
-#                   sidebarPanel(echarts4rOutput("p1"), width = 6),
-#                   
-#                   # Show a plot of the generated distribution
-#                   mainPanel(plotOutput("p2")))
-    column(width = 6,echarts4rOutput("p1",height = '800%')) ,
-    column(width = 6, plotlyOutput("p2"))
+    column(width = 6, echarts4rOutput("p1", height = '800%')) ,
+    column(
+        width = 6,
+        fluidRow(plotlyOutput("p2")),
+        fluidRow(verbatimTextOutput('pro_infor'))
+    ),
+    fluidRow(' Addtional information', tabsetPanel(
+        tabPanel(title = 't1'),
+        tabPanel(title = 't2', plotlyOutput("p3"))
+    ))
 ))

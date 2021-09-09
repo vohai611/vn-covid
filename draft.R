@@ -90,7 +90,26 @@ df1 %>%
 # Death/ case/ pop... by province
 # Description
 
-
   
+result$data[[4]] |> 
+  janitor::clean_names() |> 
+  select(date = ngay, outside = cong_dong, blockade, community) |> 
+  filter(!is.na(outside)) |>
+  replace_na(list(blockade = 1, community = 1)) %>%
+  slice_head(n = nrow(.)-1) |> 
+  mutate(date = paste0(date,'/2021'),
+         date =lubridate::dmy(date)) |> 
+  pivot_longer(-date) |> 
+  write_rds("data/case_in_community.rds")
 
 
+
+  filter(name == "Ha Noi") |> 
+  print()
+  
+result$data[[1]] |> 
+  janitor::clean_names() |> 
+  select(tinh_thanh, dan_so_nguoi) |> 
+  mutate(tinh_thanh = haitools::str_remove_accent(tinh_thanh),
+         tinh_thanh = if_else(tinh_thanh == "TP. Ho Chi Minh", "Ho Chi Minh", tinh_thanh)) |> 
+  write_rds("vn-covid/danso.rds")
