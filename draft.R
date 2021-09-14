@@ -6,12 +6,12 @@ link2 <- "https://vnexpress.net/microservice/sheet/type/covid19_2021_by_location
 link3 <- "https://vnexpress.net/microservice/sheet/type/covid19_2021_by_total"
 link4 <- "https://vnexpress.net/microservice/sheet/type/covid19_2021_by_day"
 
-link <- tibble(url= c(link1, link2, link3, link4))
-get_data <- function(link){
-GET(link) %>% 
-  read_html() %>% 
-  html_text() %>% 
-  read_csv() 
+link <- tibble(url = c(link1, link2, link3, link4))
+get_data <- function(link) {
+  GET(link) %>%
+    read_html() %>%
+    html_text() %>%
+    read_csv()
   
 }
 
@@ -23,6 +23,11 @@ df2 <- result[1, ]$data[[1]] %>%
 
 df2 <- df2 %>% 
   select(name = english, dan_so_nguoi)
+
+# main-plot (map) data ----------------------------------------------------------------------------------
+# load data to google sheet
+library(googlesheets4)
+ss <- "1NL6ikAYrvB2law5ZqdF3gTURMfONIgxdDbu88bvr36k"
 
 df1 <- result[2,]$data[[1]]
 
@@ -43,52 +48,19 @@ df1 <- df1 %>%
   mutate(total = cumsum(value)) %>% 
   ungroup()
 
-df_end <- df1 %>% 
-  left_join(df2) %>% 
-  mutate(case_pop10000 = total / dan_so_nguoi* 10000) %>% 
-  mutate(name = case_when(name == "TP HCM" ~ "Ho Chi Minh",
-                          str_detect(name, "Ba Ria")~ "Ba Ria - Vung Tau",
-                          TRUE ~ name))
-
-library(echarts4r)
-library(haitools)
-
-df_end %>% 
-  mutate(case_pop10000 = round(case_pop10000,3)) %>% 
-  arrange(desc(date)) %>%
-  group_by(date) %>%
-  e_chart(name, timeline = TRUE) %>%
-  e_map_register('vn', small_vnjson) %>%
-  e_map(case_pop10000, map = 'vn', name = 'Case percentage', ) %>%
-  e_theme("infographic") %>%
-  e_tooltip() %>%  
-  e_visual_map(case_pop10000,scale = function(x) x *10000)
-## should be using moving average
-
-cars |> 
-  dplyr::mutate(
-    dist = dist / 120
-  ) |> 
-  e_charts(speed) |> 
-  e_scatter(dist, symbol_size = 10) |> 
-  e_tooltip(
-    formatter = e_tooltip_item_formatter("percent")
-  )
-
-
-df1 %>% 
+df1 %>%  
   mutate(name = case_when(name == "TP HCM" ~ "Ho Chi Minh",
                           str_detect(name, "Ba Ria")~ "Ba Ria - Vung Tau",
                           TRUE ~ name)) %>% 
   group_by(name) %>% 
   mutate(moving_avg = slider::slide_dbl(value ,~ mean(.x),.before =7)) %>% 
   ungroup() %>% 
-  write_rds("data/main-plot.rds",compress = "gz")
+  write_sheet(ss, sheet = "main-plot")
 
 
-# Case by map
-# Death/ case/ pop... by province
-# Description
+  
+
+# case-in-community and population data -----------------------------------------------------------------
 
   
 result$data[[4]] |> 
@@ -100,16 +72,76 @@ result$data[[4]] |>
   mutate(date = paste0(date,'/2021'),
          date =lubridate::dmy(date)) |> 
   pivot_longer(-date) |> 
-  write_rds("data/case_in_community.rds")
+  write_sheet(ss, "case_in_community")
 
 
-
-  filter(name == "Ha Noi") |> 
-  print()
-  
 result$data[[1]] |> 
   janitor::clean_names() |> 
   select(tinh_thanh, dan_so_nguoi) |> 
   mutate(tinh_thanh = haitools::str_remove_accent(tinh_thanh),
          tinh_thanh = if_else(tinh_thanh == "TP. Ho Chi Minh", "Ho Chi Minh", tinh_thanh)) |> 
-  write_rds("vn-covid/danso.rds")
+  write_sheet(ss, "danso")
+
+
+# read medical statistic --------------------------------------------------------------------------------
+library(tidyverse)
+df_bs <- read_csv("~/Downloads/vn-medical-stat/so_bs.csv",skip = 1) |> 
+  janitor::clean_names()
+
+df_bv <- read_csv("~/Downloads/vn-medical-stat/so_cs_yte.csv") |> 
+  janitor::clean_names()
+
+df_gbenh <- read_csv("~/Downloads/vn-medical-stat/so_giuong_benh.csv",skip = 1) |> 
+  janitor::clean_names()
+remove_province <- c(
+  "WHOLE COUNTRY",
+  "Mekong River Delta"  ,
+  "South East",
+  "Red River Delta",
+  "Northern midlands and mountain areas",
+  "Northern Central area and Central coastal area",
+  "Central Highlands",
+  "Ha Tay"
+)
+
+cleaner <- . %>% 
+  pivot_longer(cols = -cities_provincies) %>% 
+  filter(! cities_provincies %in% remove_province ) %>% 
+  mutate(name = str_remove(name, "x2017_")) %>%  
+  filter( name != 'total')
+  
+  
+
+df_bv %>% 
+  cleaner() %>% 
+  mutate(category = "# Hospitals") %>% 
+  bind_rows(
+    df_bs %>% 
+      cleaner() %>% 
+      mutate(category = 'medical staff')
+  ) %>% 
+  bind_rows(
+    df_gbenh %>% 
+      cleaner() %>% 
+      mutate(category = "# bed")
+  ) %>%
+  rename(Province = cities_provincies) %>% 
+  mutate(Province = case_when(str_detect(Province,"Ho Chi Minh") ~ "Ho Chi Minh",
+                   Province == "Thua Thien-Hue"~ 'Thua Thien Hue',
+                   TRUE ~ Province),
+         Province  = str_replace_all(Province, "\\s+", " ")) %>% 
+  write_sheet(ss, "medical-stat")
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
