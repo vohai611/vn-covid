@@ -1,25 +1,19 @@
-#
-# This is the server logic of a Shiny web application. You can run the
-# application by clicking 'Run App' above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-
 library(shiny)
 library(tidyverse)
 library(plotly)
 library(here)
 library(rvest)
+library(DT)
 library(scales)
-
+library(googlesheets4)
+# id to googlesheet
+ss <- "1NL6ikAYrvB2law5ZqdF3gTURMfONIgxdDbu88bvr36k"
 # Load data ---------------------------------------------------------------------------------------------
 
 
-i_am("draft.R")
-main_plot <- read_rds(here("data/main-plot.rds"))
-case_in_com <- read_rds(here("data/case_in_community.rds"))
+i_am("vn-covid/server.R")
+main_plot <- read_sheet(ss, sheet = "main-plot")
+case_in_com <- read_sheet(ss, "case_in_community")
 
 # Load total cases/ death
 df <- read_html("https://static.pipezero.com/covid/data.json") |> 
@@ -34,21 +28,32 @@ df <- df$locations |>
 
 # Load population
 population <- read_rds(here('vn-covid/danso.rds'))
+# load medical_stats
+medical_stat <- read_rds(here("vn-covid/medical-stat.rds"))
 
 # Server ------------------------------------------------------------------------------------------------
 
 shinyServer(function(input, output) {
+    # render main plot title
+  output$p1_title <- renderUI({
+    HTML(paste0(province_selected(), " is now selected <br/>
+                Please click on the map to select province"))
+  })
     
     # render main plot
-    output$p1 <- renderEcharts4r({
-        main_plot %>% 
-        group_by(date) %>%
-            e_chart(name, timeline = TRUE) %>%
-            e_map_register('vn', haitools::small_vnjson) %>%
-            e_map(moving_avg, map = 'vn', name = 'Average of 7 days before', ) %>%
-            e_theme("infographic") %>%
-            e_tooltip() %>% 
-            e_visual_map(moving_avg, scale = function(x) x* 200)
+  output$p1 <- renderEcharts4r({
+    main_plot %>%
+      group_by(date) %>%
+      e_chart(name, timeline = TRUE) %>%
+      e_map_register('vn', haitools::small_vnjson) %>%
+      e_map(moving_avg, map = 'vn', name = 'Average of 7 days before') %>%
+      e_theme("infographic") %>%
+      e_tooltip() %>%
+      e_visual_map(
+        moving_avg,
+        scale = function(x)
+          x * 200
+      ) 
    
     })
     # handle click map, # might use reactiveVal() to get stable result
@@ -66,7 +71,7 @@ shinyServer(function(input, output) {
             geom_line() +
             geom_smooth(method = "loess",
                         se = FALSE) +
-            labs(title = paste0("Number of cases by day in ", province_selected()),
+            labs(title = "Number of cases by day",
                  y = NULL,
                  x = " ") +
             theme_light()
@@ -99,6 +104,10 @@ shinyServer(function(input, output) {
         
     })
     
+    # province covid info
+    output$pro_infor_title <- renderUI({
+      HTML(paste0('<font size="5"><strong>General covid statistics of ', province_selected()))
+    })
     output$pro_infor <- renderPrint({
         df <- df |>
             filter(name == province_selected())
@@ -109,6 +118,18 @@ shinyServer(function(input, output) {
                    Total death💀: {comma(df$death)}
                    Population: {comma(population$dan_so_nguoi)}
                    ")
+    })
+    
+    # render medical statistic DT
+    output$dt_title <- renderUI({
+      HTML(paste0('<font size ="5"><strong> Medical statistics of ', province_selected(), "</strong>"))
+    })
+    
+    output$medical_stat <- renderDT({
+      medical_stat %>% 
+        filter(Province == province_selected()) %>% 
+        datatable()
+      
     })
     
     

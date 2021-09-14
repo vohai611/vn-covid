@@ -1,26 +1,31 @@
-#
-# This is the user-interface definition of a Shiny web application. You can
-# run the application by clicking 'Run App' above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
+# should change to shiny dashboard for better UI
+
 
 library(shiny)
 library(echarts4r)
 library(plotly)
+library(DT)
 
 
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
     # Application title
-    titlePanel("Old Faithful Geyser Data"),
-    column(width = 6, echarts4rOutput("p1", height = '800%')) ,
+    titlePanel("Vietnam Covid Dashboard"),
+    column(width = 6,
+           fluidRow(htmlOutput("p1_title")),
+           fluidRow(echarts4rOutput("p1", height = '1000%'))
+           ) ,
     column(
         width = 6,
+        htmlOutput("pro_infor_title"),
+        tags$br(),
+        fluidRow(verbatimTextOutput('pro_infor')),
         fluidRow(plotlyOutput("p2")),
-        fluidRow(verbatimTextOutput('pro_infor'))
+        tags$br(),
+        htmlOutput('dt_title'),
+        tags$br(),
+        tags$br(),
+        fluidRow(DTOutput('medical_stat'))
     ),
     fluidRow(' Addtional information', tabsetPanel(
         tabPanel(title = 't1'),
