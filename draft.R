@@ -1,3 +1,5 @@
+#! /bin/Rscript
+
 library(tidyverse)
 library(rvest)
 library(httr)
@@ -27,6 +29,7 @@ df2 <- df2 %>%
 # main-plot (map) data ----------------------------------------------------------------------------------
 # load data to google sheet
 library(googlesheets4)
+gs4_auth(email = 'hai835559@gmail.com')
 ss <- "1NL6ikAYrvB2law5ZqdF3gTURMfONIgxdDbu88bvr36k"
 
 df1 <- result[2,]$data[[1]]
@@ -53,6 +56,7 @@ df1 %>%
                           str_detect(name, "Ba Ria")~ "Ba Ria - Vung Tau",
                           TRUE ~ name)) %>% 
   group_by(name) %>% 
+  slice(1: (n()-1)) %>% 
   mutate(moving_avg = slider::slide_dbl(value ,~ mean(.x),.before =7)) %>% 
   ungroup() %>% 
   write_sheet(ss, sheet = "main-plot")
@@ -84,54 +88,54 @@ result$data[[1]] |>
 
 
 # read medical statistic --------------------------------------------------------------------------------
-library(tidyverse)
-df_bs <- read_csv("~/Downloads/vn-medical-stat/so_bs.csv",skip = 1) |> 
-  janitor::clean_names()
-
-df_bv <- read_csv("~/Downloads/vn-medical-stat/so_cs_yte.csv") |> 
-  janitor::clean_names()
-
-df_gbenh <- read_csv("~/Downloads/vn-medical-stat/so_giuong_benh.csv",skip = 1) |> 
-  janitor::clean_names()
-remove_province <- c(
-  "WHOLE COUNTRY",
-  "Mekong River Delta"  ,
-  "South East",
-  "Red River Delta",
-  "Northern midlands and mountain areas",
-  "Northern Central area and Central coastal area",
-  "Central Highlands",
-  "Ha Tay"
-)
-
-cleaner <- . %>% 
-  pivot_longer(cols = -cities_provincies) %>% 
-  filter(! cities_provincies %in% remove_province ) %>% 
-  mutate(name = str_remove(name, "x2017_")) %>%  
-  filter( name != 'total')
-  
-  
-
-df_bv %>% 
-  cleaner() %>% 
-  mutate(category = "# Hospitals") %>% 
-  bind_rows(
-    df_bs %>% 
-      cleaner() %>% 
-      mutate(category = 'medical staff')
-  ) %>% 
-  bind_rows(
-    df_gbenh %>% 
-      cleaner() %>% 
-      mutate(category = "# bed")
-  ) %>%
-  rename(Province = cities_provincies) %>% 
-  mutate(Province = case_when(str_detect(Province,"Ho Chi Minh") ~ "Ho Chi Minh",
-                   Province == "Thua Thien-Hue"~ 'Thua Thien Hue',
-                   TRUE ~ Province),
-         Province  = str_replace_all(Province, "\\s+", " ")) %>% 
-  write_sheet(ss, "medical-stat")
-  
+# library(tidyverse)
+# df_bs <- read_csv("~/Downloads/vn-medical-stat/so_bs.csv",skip = 1) |> 
+#   janitor::clean_names()
+# 
+# df_bv <- read_csv("~/Downloads/vn-medical-stat/so_cs_yte.csv") |> 
+#   janitor::clean_names()
+# 
+# df_gbenh <- read_csv("~/Downloads/vn-medical-stat/so_giuong_benh.csv",skip = 1) |> 
+#   janitor::clean_names()
+# remove_province <- c(
+#   "WHOLE COUNTRY",
+#   "Mekong River Delta"  ,
+#   "South East",
+#   "Red River Delta",
+#   "Northern midlands and mountain areas",
+#   "Northern Central area and Central coastal area",
+#   "Central Highlands",
+#   "Ha Tay"
+# )
+# 
+# cleaner <- . %>% 
+#   pivot_longer(cols = -cities_provincies) %>% 
+#   filter(! cities_provincies %in% remove_province ) %>% 
+#   mutate(name = str_remove(name, "x2017_")) %>%  
+#   filter( name != 'total')
+#   
+#   
+# 
+# df_bv %>% 
+#   cleaner() %>% 
+#   mutate(category = "# Hospitals") %>% 
+#   bind_rows(
+#     df_bs %>% 
+#       cleaner() %>% 
+#       mutate(category = 'medical staff')
+#   ) %>% 
+#   bind_rows(
+#     df_gbenh %>% 
+#       cleaner() %>% 
+#       mutate(category = "# bed")
+#   ) %>%
+#   rename(Province = cities_provincies) %>% 
+#   mutate(Province = case_when(str_detect(Province,"Ho Chi Minh") ~ "Ho Chi Minh",
+#                    Province == "Thua Thien-Hue"~ 'Thua Thien Hue',
+#                    TRUE ~ Province),
+#          Province  = str_replace_all(Province, "\\s+", " ")) %>% 
+#   write_sheet(ss, "medical-stat")
+#   
 
 
 
