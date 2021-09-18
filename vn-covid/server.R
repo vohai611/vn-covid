@@ -6,12 +6,14 @@ library(rvest)
 library(DT)
 library(scales)
 library(googlesheets4)
+i_am("vn-covid/server.R")
+# load vnjson map for echarts
+small_vnjson <- read_rds(here('vn-covid/small-vnjson.rds'))
 # id to googlesheet
 ss <- "1NL6ikAYrvB2law5ZqdF3gTURMfONIgxdDbu88bvr36k"
 # Load data ---------------------------------------------------------------------------------------------
+#gs4_auth(cache = here("vn-covid/.secret"), email= TRUE)
 
-
-i_am("vn-covid/server.R")
 main_plot <- read_sheet(ss, sheet = "main-plot")
 case_in_com <- read_sheet(ss, "case_in_community")
 
@@ -22,12 +24,14 @@ df <- read_html("https://static.pipezero.com/covid/data.json") |>
 
 df <- df$locations |> 
   as_tibble() |> 
-  mutate(name = haitools::str_remove_accent(name),
+  mutate(name = stringi::stri_trans_general(name, id = "Latin - ASCII"),
          name = if_else(name == "TP. Ho Chi Minh", "Ho Chi Minh", name)) |> 
   select(name, death, cases)
 
 # Load population
 population <- read_rds(here('vn-covid/danso.rds'))
+population <- population %>% 
+  mutate(tinh_thanh = if_else(tinh_thanh == 'TP HCM', 'Ho Chi Minh', tinh_thanh))
 # load medical_stats
 medical_stat <- read_rds(here("vn-covid/medical-stat.rds"))
 
@@ -45,7 +49,7 @@ shinyServer(function(input, output) {
     main_plot %>%
       group_by(date) %>%
       e_chart(name, timeline = TRUE) %>%
-      e_map_register('vn', haitools::small_vnjson) %>%
+      e_map_register('vn', small_vnjson) %>%
       e_map(moving_avg, map = 'vn', name = 'Average of 7 days before') %>%
       e_theme("infographic") %>%
       e_tooltip() %>%
@@ -65,20 +69,30 @@ shinyServer(function(input, output) {
     
     # render side plot 
     output$p2 <- renderPlotly({
-        p2 <- main_plot %>%
-            filter(name == province_selected())  %>%
-            ggplot(aes(date, value)) +
-            geom_line() +
-            geom_smooth(method = "loess",
-                        se = FALSE) +
-            labs(title = "Number of cases by day",
-                 y = NULL,
-                 x = " ") +
-            theme_light()
-       ggplotly(p2) |> 
-           layout(hovermode = "x") |> 
-           config(displayModeBar = FALSE)
-        
+      p2 <- main_plot %>%
+        mutate(date = lubridate::date(date)) %>%
+        filter(name == province_selected()) %>%
+        highlight_key(~date) %>% 
+        ggplot(aes(date, value)) +
+        geom_smooth(
+          se = FALSE,
+          method = 'loess',
+          color = 'firebrick',
+          alpha = .7,
+          size = .6
+        ) +
+        geom_col(aes(text = paste0(date, "\nCases: ", value))) +
+        labs(title = "Number of cases by day",
+             y = NULL,
+             x = " ") +
+        theme_light()+
+        theme(plot.title.position = "plot")
+      
+      
+      ggplotly(p2,tooltip = "text") %>% 
+        highlight(on = "plotly_hover", color = "grey30", off = 'plotly_doubleclick') %>% 
+        config(displayModeBar = FALSE)
+      
     })
     observeEvent(input$p1_clicked_data, print(input$p1_clicked_data))
     

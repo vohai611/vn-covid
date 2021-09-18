@@ -13,7 +13,7 @@ shinyUI(fluidPage(
     titlePanel("Vietnam Covid Dashboard"),
     column(width = 6,
            fluidRow(htmlOutput("p1_title")),
-           fluidRow(echarts4rOutput("p1", height = '1000%'))
+           fluidRow(echarts4rOutput("p1", height = '1200%'))
            ) ,
     column(
         width = 6,
