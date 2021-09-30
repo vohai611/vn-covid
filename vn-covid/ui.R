@@ -1,4 +1,4 @@
-# should change to shiny dashboard for better UI
+## New UI
 
 
 library(shiny)
@@ -6,29 +6,24 @@ library(echarts4r)
 library(plotly)
 library(DT)
 
-
-# Define UI for application that draws a histogram
-shinyUI(fluidPage(
-    # Application title
-    titlePanel("Vietnam Covid Dashboard"),
-    column(width = 6,
-           fluidRow(htmlOutput("p1_title")),
-           fluidRow(echarts4rOutput("p1", height = '1200%'))
-           ) ,
-    column(
-        width = 6,
-        htmlOutput("pro_infor_title"),
-        tags$br(),
-        fluidRow(verbatimTextOutput('pro_infor')),
-        fluidRow(plotlyOutput("p2")),
-        tags$br(),
-        htmlOutput('dt_title'),
-        tags$br(),
-        tags$br(),
-        fluidRow(DTOutput('medical_stat'))
-    ),
-    fluidRow(' Addtional information', tabsetPanel(
-        tabPanel(title = 't1'),
-        tabPanel(title = 't2', plotlyOutput("p3"))
-    ))
-))
+ui <- fluidPage(title = titlePanel("Covid dashboard"),
+                br(),
+  column(5,
+         fluidRow(htmlOutput("p1_title")),
+         fluidRow(echarts4rOutput("p1", height = "1200%"))),
+  column(7,
+         uiOutput("h2"),
+         fluidRow(tabsetPanel(
+           tabPanel('Cases by day',
+                    br(),
+                    fluidRow(verbatimTextOutput('pro_infor')),
+                    fluidRow(plotlyOutput('p2'))),
+           tabPanel(title = "Medical infrastructure summary",
+                    br(),
+                    DTOutput("medical_stat"))
+         )),
+         h2("Country data"),
+         fluidRow(tabsetPanel(
+           tabPanel(title = 'Cases in all country', plotlyOutput("p4")),
+           tabPanel(title = 'Cases in/out of blockade', plotlyOutput("p3"))
+         ))))
