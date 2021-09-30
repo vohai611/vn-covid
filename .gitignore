@@ -8,3 +8,4 @@ secrets
 .secret
 Todo.txt
 vn-covid/rsconnect/
+*.Rmd
