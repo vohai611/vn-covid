@@ -8,4 +8,4 @@ This is an repository of my personal project
 The main idead of this project is to visualize Vietnam covid-19 data by
 Province.
 
-The app is deployed at [shinyap](https://haivo.shinyapps.io/vn-covid/)
+The app is deployed at [shinyapp](https://haivo.shinyapps.io/vn-covid/)
