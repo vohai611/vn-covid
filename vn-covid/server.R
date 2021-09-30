@@ -7,50 +7,52 @@ library(DT)
 library(scales)
 library(googlesheets4)
 i_am("vn-covid/server.R")
-# load vnjson map for echarts
-small_vnjson <- read_rds(here('vn-covid/small-vnjson.rds'))
-# id to googlesheet
-ss <- "1NL6ikAYrvB2law5ZqdF3gTURMfONIgxdDbu88bvr36k"
-# Load data ---------------------------------------------------------------------------------------------
-#gs4_auth(cache = here("vn-covid/.secret"), email= TRUE)
-
-main_plot <- read_sheet(ss, sheet = "main-plot")
-case_in_com <- read_sheet(ss, "case_in_community")
-
-# Load total cases/ death
-df <- read_html("https://static.pipezero.com/covid/data.json") |> 
-  html_text() |> 
-  jsonlite::fromJSON()
-
-df <- df$locations |> 
-  as_tibble() |> 
-  mutate(name = stringi::stri_trans_general(name, id = "Latin - ASCII"),
-         name = if_else(name == "TP. Ho Chi Minh", "Ho Chi Minh", name)) |> 
-  select(name, death, cases)
-
-# Load population
-population <- read_rds(here('vn-covid/danso.rds'))
-population <- population %>% 
-  mutate(tinh_thanh = if_else(tinh_thanh == 'TP HCM', 'Ho Chi Minh', tinh_thanh))
-# load medical_stats
-medical_stat <- read_rds(here("vn-covid/medical-stat.rds"))
-
+# # load vnjson map for echarts
+# small_vnjson <- read_rds(here('vn-covid/small-vnjson.rds'))
+# # id to googlesheet
+# ss <- "1NL6ikAYrvB2law5ZqdF3gTURMfONIgxdDbu88bvr36k"
+# # Load data ---------------------------------------------------------------------------------------------
+# #gs4_auth(cache = here("vn-covid/.secret"), email= TRUE)
+# 
+# main_plot <- read_sheet(ss, sheet = "main-plot")
+# case_in_com <- read_sheet(ss, "case_in_community") %>% 
+#   filter(name %in% c('blockade', 'community')) %>% 
+#   mutate(date = lubridate::date(date))
+# 
+# # Load total cases/ death
+# df <- read_html("https://static.pipezero.com/covid/data.json") |> 
+#   html_text() |> 
+#   jsonlite::fromJSON()
+# 
+# df <- df$locations |> 
+#   as_tibble() |> 
+#   mutate(name = stringi::stri_trans_general(name, id = "Latin - ASCII"),
+#          name = if_else(name == "TP. Ho Chi Minh", "Ho Chi Minh", name)) |> 
+#   select(name, death, cases)
+# 
+# # Load population
+# population <- read_rds(here('vn-covid/danso.rds'))
+# population <- population %>% 
+#   mutate(tinh_thanh = if_else(tinh_thanh == 'TP HCM', 'Ho Chi Minh', tinh_thanh))
+# # load medical_stats
+# medical_stat <- read_rds(here("vn-covid/medical-stat.rds"))
+source(here("vn-covid/load-and-cache.R"))
 # Server ------------------------------------------------------------------------------------------------
 
-shinyServer(function(input, output) {
-    # render main plot title
+server <- function(input, output, session) {
+    # render main plot title ----
   output$p1_title <- renderUI({
-    HTML(paste0(province_selected(), " is now selected <br/>
+    HTML(paste0("<h1 >", province_selected(), " is now selected <br/></h1>
                 Please click on the map to select province"))
   })
     
-    # render main plot
+    # render main plot ----
   output$p1 <- renderEcharts4r({
     main_plot %>%
       group_by(date) %>%
       e_chart(name, timeline = TRUE) %>%
       e_map_register('vn', small_vnjson) %>%
-      e_map(moving_avg, map = 'vn', name = 'Average of 7 days before') %>%
+      e_map(moving_avg, map = 'vn', name = 'Average cases of 7 days before') %>%
       e_theme("infographic") %>%
       e_tooltip() %>%
       e_visual_map(
@@ -66,8 +68,26 @@ shinyServer(function(input, output) {
         else (input$p1_clicked_data$name)
         
     })
+    # render h2 title
+    output$h2 <- renderUI(HTML(paste0("<h2>", province_selected(), " data</h2>")))
     
-    # render side plot 
+    # province covid info -----
+    output$pro_infor_title <- renderUI({
+      HTML(paste0('<font size="5"><strong>General covid statistics of ', province_selected()))
+    })
+    output$pro_infor <- renderPrint({
+        df <- df |>
+            filter(name == province_selected())
+        population <- population |> 
+            filter(tinh_thanh == province_selected())
+        
+        glue::glue("Total cases😖: {comma(df$cases)}
+                   Total death💀: {comma(df$death)}
+                   Population: {comma(population$dan_so_nguoi)}
+                   ")
+    })
+    
+    # render side plot ----
     output$p2 <- renderPlotly({
       p2 <- main_plot %>%
         mutate(date = lubridate::date(date)) %>%
@@ -94,21 +114,37 @@ shinyServer(function(input, output) {
         config(displayModeBar = FALSE)
       
     })
-    observeEvent(input$p1_clicked_data, print(input$p1_clicked_data))
     
+    # render country aggregate data
+    output$p4 <- renderPlotly({
+    
+        p4 <- main_plot %>% 
+        group_by(date) %>% 
+        summarise(total = sum(value)) %>% 
+          ggplot(aes(date, total))+
+          geom_line()+
+          geom_point()+
+          theme_light()+
+          labs(x =NULL, y = "Total cases by day")
+        ggplotly(p4) %>% 
+          config(displayModeBar =FALSE)
+        
+    })
+    
+    # render plot 'case in/out blockade' ----
     output$p3 <- renderPlotly({
         p3 <- case_in_com |>
             ggplot(aes(
                 date,
                 value,
-                color = name,
+                fill = name,
                 group = name,
                 text = glue::glue("Cases in {name}: {value} " )
             )) +
-            geom_line() +
-            scale_color_manual(values = c("#6D4444", "#38639C", "#7D7834FC"))+
+            geom_area(alpha = .8) +
+            scale_fill_manual(values = c("#CDAA7D", "#8B2323"))+
             scale_y_continuous(labels = scales::comma)+
-            labs(x="", y = '', color = "")+
+            labs(x="", y = '', fill = "")+
             theme_light()
         
         ggplotly(p3,tooltip = c('text', 'x')) |> 
@@ -118,23 +154,7 @@ shinyServer(function(input, output) {
         
     })
     
-    # province covid info
-    output$pro_infor_title <- renderUI({
-      HTML(paste0('<font size="5"><strong>General covid statistics of ', province_selected()))
-    })
-    output$pro_infor <- renderPrint({
-        df <- df |>
-            filter(name == province_selected())
-        population <- population |> 
-            filter(tinh_thanh == province_selected())
-        
-        glue::glue("Total cases😖: {comma(df$cases)}
-                   Total death💀: {comma(df$death)}
-                   Population: {comma(population$dan_so_nguoi)}
-                   ")
-    })
-    
-    # render medical statistic DT
+    # render medical statistic DT ----
     output$dt_title <- renderUI({
       HTML(paste0('<font size ="5"><strong> Medical statistics of ', province_selected(), "</strong>"))
     })
@@ -142,9 +162,10 @@ shinyServer(function(input, output) {
     output$medical_stat <- renderDT({
       medical_stat %>% 
         filter(Province == province_selected()) %>% 
-        datatable()
+        select(Category = category,`Medical unit` = name, Quantity = value) %>% 
+        datatable(rownames = FALSE)
       
     })
     
     
-})
+}
