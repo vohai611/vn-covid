@@ -9,13 +9,19 @@ library(DT)
 library(scales)
 library(googlesheets4)
 
+
 i_am("vn-covid/server.R")
 # load vnjson map for echarts
 small_vnjson <- read_rds(here('vn-covid/small-vnjson.rds'))
 # id to googlesheet
 ss <- "1NL6ikAYrvB2law5ZqdF3gTURMfONIgxdDbu88bvr36k"
-# Load data ---------------------------------------------------------------------------------------------
 
+# set auth option
+options(gargle_oauth_cache = here("vn-covid/.secrets"),
+         gargle_oath_email  = "hai835559@gmail.com")
+# gs4_auth() 
+gs4_auth(email = TRUE)
+# Load data ---------------------------------------------------------------------------------------------
 # read and cache
 
 data <- read_rds(here("vn-covid/cache_data.rds"))
