@@ -53,8 +53,15 @@ server <- function(input, output, session) {
       e_chart(name, timeline = TRUE) %>%
       e_map_register('vn', small_vnjson) %>%
       e_map(moving_avg, map = 'vn', name = 'Average cases of 7 days before') %>%
-      e_theme("infographic") %>%
       e_tooltip() %>%
+      e_timeline_opts(
+        playInterval = 150,
+        currentIndex = 150, 
+        symbol = "pin",
+        top = 5,
+        right = 50,
+        left = 200,
+      ) %>% 
       e_visual_map(
         moving_avg,
         scale = function(x)
