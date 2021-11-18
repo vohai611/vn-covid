@@ -62,3 +62,4 @@ population <- population %>%
   mutate(tinh_thanh = if_else(tinh_thanh == 'TP HCM', 'Ho Chi Minh', tinh_thanh))
 # load medical_stats
 medical_stat <- read_rds(here("vn-covid/medical-stat.rds"))
+

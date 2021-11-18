@@ -24,7 +24,7 @@ df2 <- result[1, ]$data[[1]] %>%
   janitor::clean_names()
 
 df2 <- df2 %>% 
-  select(name = english, dan_so_nguoi)
+  select(name = english)
 
 # main-plot (map) data ----------------------------------------------------------------------------------
 # load data to google sheet
@@ -81,7 +81,7 @@ result$data[[4]] |>
 
 result$data[[1]] |> 
   janitor::clean_names() |> 
-  select(tinh_thanh, dan_so_nguoi) |> 
+  select(tinh_thanh) |> 
   mutate(tinh_thanh = haitools::str_remove_accent(tinh_thanh),
          tinh_thanh = if_else(tinh_thanh == "TP. Ho Chi Minh", "Ho Chi Minh", tinh_thanh)) |> 
   write_sheet(ss, "danso")
