@@ -82,7 +82,7 @@ result$data[[4]] |>
 result$data[[1]] |> 
   janitor::clean_names() |> 
   select(tinh_thanh) |> 
-  mutate(tinh_thanh = haitools::str_remove_accent(tinh_thanh),
+  mutate(tinh_thanh = stringi::stri_trans_general(tinh_thanh,  id = "Latin - ASCII"),
          tinh_thanh = if_else(tinh_thanh == "TP. Ho Chi Minh", "Ho Chi Minh", tinh_thanh)) |> 
   write_sheet(ss, "danso")
 
